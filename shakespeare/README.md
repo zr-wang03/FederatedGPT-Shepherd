@@ -14,7 +14,7 @@
   - ```--spltseed``` :=  seed to be used before random split of data
 
 i.e.
-- ```./preprocess.sh -s niid --sf 1.0 -k 0 -t sample -tf 0.8``` (full-sized dataset)<br/>
+- ```sudo bash preprocess.sh -s niid --sf 1.0 -k 0 -t sample -tf 0.8``` (full-sized dataset)<br/>
 - ```./preprocess.sh -s niid --sf 0.2 -k 0 -t sample -tf 0.8``` (small-sized dataset)
 ('-tf 0.8' reflects the train-test split used in the [FedAvg paper](https://arxiv.org/pdf/1602.05629.pdf))
 
