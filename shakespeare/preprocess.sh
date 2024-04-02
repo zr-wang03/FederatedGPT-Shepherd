@@ -14,7 +14,7 @@ fi
 
 NAME="shakespeare"
 
-cd ../utils
+cd ../utils_data
 
 sudo bash preprocess.sh --name $NAME $@
 

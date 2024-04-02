@@ -170,7 +170,7 @@ if [ "$CONT_SCRIPT" = true ] && [ ! $SAMPLE = "na" ]; then
             mkdir data/sampled_data
         fi
 
-        cd ../utils
+        cd ../utils_data
 
         # Defaults to -1 if not specified, causes script to randomly generate seed
         SEED_ARGUMENT="${SAMPLING_SEED:--1}" 
@@ -194,7 +194,7 @@ if [ "$CONT_SCRIPT" = true ] && [ ! $MINSAMPLES = "na" ]; then
             mkdir data/rem_user_data
         fi
 
-        cd ../utils
+        cd ../utils_data
 
         if [ -z $MINSAMPLES ]; then
             python3 remove_users.py $NAMETAG
@@ -223,7 +223,7 @@ if [ "$CONT_SCRIPT" = true ] && [ ! $TRAIN = "na" ]; then
             mkdir data/test
         fi
 
-        cd ../utils
+        cd ../utils_data
 
         # Defaults to -1 if not specified, causes script to randomly generate seed
         SEED_ARGUMENT="${SPLIT_SEED:--1}"
