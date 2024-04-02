@@ -50,11 +50,11 @@ training_dataset = ShakespeareDataset(training_json_path)
 # Generate instruction-response pairs
 for user in training_dataset.users.keys():
     pairs = training_dataset.generate_instruction_response_pairs_with_blanks_everywhere(user)
-    output_json_path = './data/training/user/shakespeare_instruction_response_pairs_'+user+'.json'
+    output_json_path = './data_leaf/training/user/shakespeare_instruction_response_pairs_'+user+'.json'
     with open(output_json_path, 'w') as file:
         json.dump(pairs, file, indent=4)
 pairs = training_dataset.generate_instruction_response_pairs_with_blanks_everywhere()
-output_json_path = './data/training/shakespeare_instruction_response_pairs_all.json'
+output_json_path = './data_leaf/training/shakespeare_instruction_response_pairs_all.json'
 with open(output_json_path, 'w') as file:
         json.dump(pairs, file, indent=4)
 
@@ -69,10 +69,10 @@ testing_dataset = ShakespeareDataset(testing_json_path)
 # Generate instruction-response pairs
 for user in testing_dataset.users.keys():
     pairs = testing_dataset.generate_instruction_response_pairs_with_blanks_everywhere(user)
-    output_json_path = './data/testing/user/shakespeare_instruction_response_pairs_'+user+'.json'
+    output_json_path = './data_leaf/testing/user/shakespeare_instruction_response_pairs_'+user+'.json'
     with open(output_json_path, 'w') as file:
         json.dump(pairs, file, indent=4)
 pairs = testing_dataset.generate_instruction_response_pairs_with_blanks_everywhere()
-output_json_path = './data/testing/shakespeare_instruction_response_pairs_all.json'
+output_json_path = './data_leaf/testing/shakespeare_instruction_response_pairs_all.json'
 with open(output_json_path, 'w') as file:
         json.dump(pairs, file, indent=4)
