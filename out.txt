@@ -1,0 +1,25 @@
+Federated Finetuning LLM-LoRA with params:
+global_model: chavinlo/alpaca-native
+data_path: ./data
+output_dir: ./lora-shepherd-7b/
+client_selection_strategy: random
+client_selection_frac: 0.1
+num_communication_rounds: 10
+num_clients: 10
+local_batch_size: 64
+local_micro_batch_size: 8
+local_num_epochs: 10
+local_learning_rate: 0.0003
+local_val_set_size: 0
+local_save_steps: 3
+cutoff_len: 512
+lora_r: 16
+lora_alpha: 16
+lora_dropout: 0.05
+lora_target_modules: ['q_proj']
+train_on_inputs: True
+group_by_length: True
+resume_from_checkpoint: False
+prompt template: alpaca
+
+The process of federated instruction-tuning has started..
