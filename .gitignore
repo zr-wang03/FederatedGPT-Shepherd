@@ -1,5 +1,4 @@
 .idea/
-out.txt
 *.json
 shakespeare/data/
 lora-shepherd-7b/
