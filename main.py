@@ -13,7 +13,11 @@ from peft import (
 from fed_utils import FedAvg, client_selection, global_evaluation, GeneralClient
 import datasets
 from utils.prompter import Prompter
-
+from datasets import load_dataset
+if torch.cuda.is_available():
+    device = "cuda"
+else:
+    device = "cpu"
 datasets.utils.logging.set_verbosity_error()
 
 
@@ -208,8 +212,41 @@ def fl_finetune(
         torch.save(model.state_dict(), os.path.join(output_dir, str(epoch), "adapter_model.bin"))
         config.save_pretrained(output_dir)
 
-        # Please design the evaluation method based on your specific requirements in the fed_utils/evaluation.py file.
-        global_evaluation()
+
+        
+    # Please design the evaluation method based on your specific requirements in the fed_utils/evaluation.py file.
+    # Evaluation
+        
+    model.eval()
+    correct_predictions = 0
+    test_cases_path = './data_leaf/testing/shakespeare_instruction_response_pairs_all.json'
+    test_cases = load_dataset("json", data_files=test_cases_path)
+
+    # print(test_cases["train"])
+    for case in test_cases["train"]:
+        # print(case)
+        # Generate the prompt using your logic; adjust as necessary
+        prompt = prompter.generate_prompt(case["instruction"], case["context"])
+        inputs = tokenizer(prompt, return_tensors="pt").to(device)
+
+        # Generate output
+        with torch.no_grad():
+            outputs = model.generate(inputs["input_ids"], max_new_tokens=1, num_return_sequences=1)
+        
+        # Decode generated ID to text
+        predicted_char = tokenizer.decode(outputs[:,-1][0], skip_special_tokens=True)
+        expected_char = case["response"].strip()
+
+        # Evaluate prediction
+        if predicted_char.lower() == expected_char.lower():
+            correct_predictions += 1
+        else:
+            print(f"Wrong prediction for: {prompt}\nExpected: {expected_char}, Got: {predicted_char}")
+
+    # Calculate and print accuracy
+    accuracy = correct_predictions / len(test_cases)
+    print(f"Accuracy: {accuracy:.2f} ({correct_predictions}/{len(test_cases)})")
+    model.train()
 
 
 if __name__ == "__main__":

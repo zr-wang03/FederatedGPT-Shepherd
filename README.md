@@ -28,3 +28,15 @@ Step 3: Run client_data_allocation with
     num_client=10 # The number of clients
     diff_quantity=0 # Whether clients have different amounts of data
     python client_data_allocation.py $num_client $diff_quantity
+
+
+
+Step 4: Run the program with 
+
+    python main.py --global_model 'chavinlo/alpaca-native'\
+        --data_path  "./data" \
+        --output_dir  './lora-shepherd-7b/'\
+        --num_communication_rounds 10 \
+        --num_clients  10 \
+        --train_on_inputs \
+        --group_by_length

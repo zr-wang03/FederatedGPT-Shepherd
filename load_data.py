@@ -32,7 +32,7 @@ class ShakespeareDataset(Dataset):
         else:
             origin_data = self.users[user]
         for sample_x, sample_y in origin_data:
-            instruction = 'What letter should be after this:\"' + sample_x + '\"?'
+            instruction = 'Answer with just one letter or symbol, what letter or symbol should be after this:"' + sample_x + '", ?'
             pair = {
                 "instruction": instruction,
                 "context": "",
