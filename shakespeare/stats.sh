@@ -2,7 +2,7 @@
 
 NAME="shakespeare"
 
-cd ../utils
+cd ../utils_data
 
 python3 stats.py --name $NAME
 
