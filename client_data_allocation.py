@@ -17,7 +17,7 @@ random.seed(42)
 df = pd.read_json("/users/wang2451/FederatedGPT-Shepherd/data_leaf/training/shakespeare_instruction_response_pairs_all.json", orient='records')
 sorted_df = df.sort_values(by=['category'])
 grouped = sorted_df.groupby('category')
-sampled_df = grouped.apply(lambda x: x.sample(n=10))
+sampled_df = grouped.apply(lambda x: x.sample(n=1))
 sampled_df = sampled_df.reset_index(level=0, drop=True)
 remaining_df = sorted_df.drop(index=sampled_df.index)
 
@@ -32,7 +32,7 @@ with open(os.path.join(data_path, "global_training.json"), 'w') as outfile:
     json.dump(remaining_df_dic, outfile)
 
 sampled_df_dic = sampled_df.to_dict(orient='records')
-with open(os.path.join(data_path, "global_test.json"), 'w') as outfile:
+with open(os.path.join(data_path, "sampled_one_From_each_group.json"), 'w') as outfile:
     json.dump(sampled_df_dic, outfile)
 
 # Partition the global training data into smaller subsets for each client's local training dataset
