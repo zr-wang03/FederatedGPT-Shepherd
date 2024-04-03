@@ -126,131 +126,240 @@ class GeneralClient(fl.client.NumPyClient):
 
 
 
-def evaluate_global(
-    load_8bit: bool = False,
-    base_model: str = "",
-    lora_weights_path: str = "",
-    lora_config_path: str= "", # provide only the file path, excluding the file name 'adapter_config.json'
-    prompt_template: str = ""):
 
-    base_model = base_model or os.environ.get("BASE_MODEL", "")
-    assert (
-        base_model
-    ), "Please specify a --base_model, e.g. --base_model='huggyllama/llama-7b'"
 
-    prompter = Prompter(prompt_template)
-    tokenizer = LlamaTokenizer.from_pretrained(base_model)
-    if not lora_weights_path.endswith(".bin"):
-        if device == "cuda":
-            model = LlamaForCausalLM.from_pretrained(
-                base_model,
-                load_in_8bit=load_8bit,
-                torch_dtype=torch.float16,
-                device_map="auto",
-            )
-            model = PeftModel.from_pretrained(
-                model,
-                lora_weights_path,
-                torch_dtype=torch.float16,
-            )
-        else:
-            model = LlamaForCausalLM.from_pretrained(
-                base_model, device_map={"": device}, low_cpu_mem_usage=True
-            )
-            model = PeftModel.from_pretrained(
-                model,
-                lora_weights_path,
-                device_map={"": device},
-            )
-    else:
-        model = LlamaForCausalLM.from_pretrained(
-            base_model,
-            load_in_8bit=True,
-            torch_dtype=torch.float16,
-            device_map="auto",
+
+
+
+import os
+from typing import List
+from tqdm import tqdm
+import fire
+import torch
+from transformers import LlamaTokenizer, LlamaForCausalLM
+from peft import (
+    LoraConfig,
+    get_peft_model,
+    # prepare_model_for_int8_training,
+    prepare_model_for_kbit_training,
+)
+from fed_utils import FedAvg, client_selection, global_evaluation, GeneralClient
+import datasets
+from utils.prompter import Prompter
+
+datasets.utils.logging.set_verbosity_error()
+
+
+def fl_finetune(
+        # model/data params
+        global_model: str = '',
+        data_path: str = './data',
+        output_dir: str = './lora-shepherd/',
+        # FL hyperparamas
+        client_selection_strategy: str = 'random',
+        client_selection_frac: float = 0.1,
+        num_communication_rounds: int = 50,
+        num_clients: int = 10,
+        # Local training hyperparams
+        local_batch_size: int = 64,  # 64,
+        local_micro_batch_size: int = 8,
+        local_num_epochs: int = 10,
+        local_learning_rate: float = 3e-4,
+        local_val_set_size: int = 0,
+        local_save_steps: int = 3,
+        cutoff_len: int = 512,
+        # LoRA hyperparams
+        lora_r: int = 16,
+        lora_alpha: int = 16,
+        lora_dropout: float = 0.05,
+        lora_target_modules: List[str] = [
+            "q_proj",
+        ],
+        # llm hyperparams
+        train_on_inputs: bool = True,
+        group_by_length: bool = False,
+        resume_from_checkpoint: str = None,  # either training checkpoint or final adapter
+        prompt_template_name: str = "alpaca",  # The prompt template to use, will default to alpaca.
+):
+    if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+        print(
+            f"Federated Finetuning LLM-LoRA with params:\n"
+            f"global_model: {global_model}\n"
+            f"data_path: {data_path}\n"
+            f"output_dir: {output_dir}\n"
+            f"client_selection_strategy: {client_selection_strategy}\n"
+            f"client_selection_frac: {client_selection_frac}\n"
+            f"num_communication_rounds: {num_communication_rounds}\n"
+            f"num_clients: {num_clients}\n"
+            f"local_batch_size: {local_batch_size}\n"
+            f"local_micro_batch_size: {local_micro_batch_size}\n"
+            f"local_num_epochs: {local_num_epochs}\n"
+            f"local_learning_rate: {local_learning_rate}\n"
+            f"local_val_set_size: {local_val_set_size}\n"
+            f"local_save_steps: {local_save_steps}\n"
+            f"cutoff_len: {cutoff_len}\n"
+            f"lora_r: {lora_r}\n"
+            f"lora_alpha: {lora_alpha}\n"
+            f"lora_dropout: {lora_dropout}\n"
+            f"lora_target_modules: {lora_target_modules}\n"
+            f"train_on_inputs: {train_on_inputs}\n"
+            f"group_by_length: {group_by_length}\n"
+            f"resume_from_checkpoint: {resume_from_checkpoint or False}\n"
+            f"prompt template: {prompt_template_name}\n"
         )
-        model = prepare_model_for_int8_training(model)
-        config = LoraConfig.from_pretrained(lora_config_path)
-        lora_weights = torch.load(lora_weights_path)
-        model = PeftModel(model, config)
-        set_peft_model_state_dict(model,lora_weights,"default")
-        del lora_weights
+    assert (
+        global_model
+    ), "Please specify a --global_model, e.g. --global_modell='decapoda-research/llama-7b-hf'"
 
-    model.eval()
+    data_path = os.path.join(data_path, str(num_clients))
+    assert (os.path.exists(data_path), "Please generate the data files for each client")
+
+    # set up the global model & toknizer
+    gradient_accumulation_steps = local_batch_size // local_micro_batch_size
+    prompter = Prompter(prompt_template_name)
+    device_map = "auto"
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+    ddp = world_size != 1
+    if ddp:
+        device_map = {"": int(os.environ.get("LOCAL_RANK") or 0)}
+        gradient_accumulation_steps = gradient_accumulation_steps // world_size
+
+    model = LlamaForCausalLM.from_pretrained(
+        global_model,
+        load_in_8bit=True,
+        torch_dtype=torch.float16,
+        device_map=device_map,
+    )
+
+    tokenizer = LlamaTokenizer.from_pretrained(global_model)
+    tokenizer.pad_token_id = (
+        0
+    )
+    tokenizer.padding_side = "left"
+
+    def tokenize(prompt, add_eos_token=True):
+        result = tokenizer(
+            prompt,
+            truncation=True,
+            max_length=cutoff_len,
+            padding=False,
+            return_tensors=None,
+        )
+        if (
+                result["input_ids"][-1] != tokenizer.eos_token_id
+                and len(result["input_ids"]) < cutoff_len
+                and add_eos_token
+        ):
+            result["input_ids"].append(tokenizer.eos_token_id)
+            result["attention_mask"].append(1)
+
+        result["labels"] = result["input_ids"].copy()
+
+        return result
+
+    def generate_and_tokenize_prompt(data_point):
+        full_prompt = prompter.generate_prompt(
+            data_point["instruction"],
+            data_point["context"],
+            data_point["response"],
+        )
+        tokenized_full_prompt = tokenize(full_prompt)
+        if not train_on_inputs:
+            user_prompt = prompter.generate_prompt(
+                data_point["instruction"], data_point["context"]
+            )
+            tokenized_user_prompt = tokenize(user_prompt, add_eos_token=False)
+            user_prompt_len = len(tokenized_user_prompt["input_ids"])
+
+            tokenized_full_prompt["labels"] = [
+                                                  -100
+                                              ] * user_prompt_len + tokenized_full_prompt["labels"][
+                                                                    user_prompt_len:
+                                                                    ]  # could be sped up, probably
+        return tokenized_full_prompt
+
+    # model = prepare_model_for_int8_training(model)
+    model = prepare_model_for_kbit_training(model) # int8 is already out of date (zhuoran)
 
 
-    # Evaluation
-    correct_predictions = 0
-    test_cases_path = './data/testing/shakespeare_instruction_response_pairs_all.json'
-    with open(test_cases_path, 'r') as f:
-        test_cases = json.load(f)
-    for case in test_cases:
-        # Generate the prompt using your logic; adjust as necessary
-        prompt = prompter.generate_prompt(case["instruction"], case["context"])
-        inputs = tokenizer(prompt, return_tensors="pt").to(device)
+    config = LoraConfig(
+        r=lora_r,
+        lora_alpha=lora_alpha,
+        target_modules=lora_target_modules,
+        lora_dropout=lora_dropout,
+        bias="none",
+        task_type="CAUSAL_LM",
+    )
+    model = get_peft_model(model, config)
+    if not ddp and torch.cuda.device_count() > 1:
+        model.is_parallelizable = True
+        model.model_parallel = True
 
-        # Generate output
-        with torch.no_grad():
-            outputs = model.generate(inputs["input_ids"], max_length=1, num_return_sequences=1)
-        
-        # Decode generated ID to text
-        predicted_char = tokenizer.decode(outputs[:, -1][0], skip_special_tokens=True)
-        expected_char = case["response"].strip()
+    print("The process of federated instruction-tuning has started..")
+    previously_selected_clients_set = set()
+    last_client_id = None
+    local_dataset_len_dict = dict()
+    output_dir = os.path.join(output_dir, str(num_clients))
 
-        # Evaluate prediction
-        if predicted_char.lower() == expected_char.lower():
-            correct_predictions += 1
-        else:
-            print(f"Wrong prediction for: {prompt}\nExpected: {expected_char}, Got: {predicted_char}")
+    def evaluate_global(server_round: int,
+        parameters: fl.common.NDArrays,
+        config: dict[str, fl.common.Scalar],):
+        # Evaluation
+        correct_predictions = 0
+        test_cases_path = './data/testing/shakespeare_instruction_response_pairs_all.json'
+        with open(test_cases_path, 'r') as f:
+            test_cases = json.load(f)
+        for case in test_cases:
+            # Generate the prompt using your logic; adjust as necessary
+            prompt = prompter.generate_prompt(case["instruction"], case["context"])
+            inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
-    # Calculate and print accuracy
-    accuracy = correct_predictions / len(test_cases)
-    print(f"Accuracy: {accuracy:.2f} ({correct_predictions}/{len(test_cases)})")
+            # Generate output
+            with torch.no_grad():
+                outputs = model.generate(inputs["input_ids"], max_length=1, num_return_sequences=1)
+            
+            # Decode generated ID to text
+            predicted_char = tokenizer.decode(outputs[:, -1][0], skip_special_tokens=True)
+            expected_char = case["response"].strip()
 
+            # Evaluate prediction
+            if predicted_char.lower() == expected_char.lower():
+                correct_predictions += 1
 
-
-
-
-
-def client_fn(cid: str) -> FlowerClient:
-    """Create a Flower client representing a single organization."""
-
-    # Load model
-    if args.model == "pyramidnet":
-        net = pyramidnet().to(DEVICE)
-    elif args.model == "resnet":
-        net = resnet18().to(DEVICE)
-    else:
-        net = pyramidnet().to(DEVICE)
-
-    # Load data (CIFAR-10)
-    client_idxs = {dataset_type: splits[dataset_type].idxs[int(cid)] if splits[dataset_type] is not None else None for dataset_type in splits}
-    trainloader = DataLoader(Subset(datasets['train'], client_idxs['train']), batch_size=args.train_bs, shuffle=True) if len(client_idxs['train']) > 0 else None
-    valloader = trainloader
-    
-    # Create a  single Flower client representing a single organization
-    return FlowerClient(net, trainloader, valloader)
+        # Calculate and print accuracy
+        accuracy = correct_predictions / len(test_cases)
+        print(f"Accuracy: {accuracy:.2f} ({correct_predictions}/{len(test_cases)})")
 
 
+    def client_fn(cid: str) -> FlowerClient:
+        client = GeneralClient(cid, model, datapath, output_dir)
+        # TODO
+        # Create a  single Flower client representing a single organization
+        return GeneralClient(net, trainloader, valloader)
 
 
+    client_resources = {"num_gpus": 1, "num_cpus":35}
+    strategy = fl.server.strategy.FedAvg(
+            fraction_fit=1,  
+            fraction_evaluate=1,  
+            min_fit_clients=1,  
+            min_available_clients=1,  
+            evaluate_fn=evaluate_global,
+            on_evaluate_config_fn=evaluate_config,
+    )
 
-client_resources = {"num_gpus": 1, "num_cpus":35}
-strategy = fl.server.strategy.FedAvg(
-        fraction_fit=args.frac_clients,  
-        fraction_evaluate=1,  
-        min_fit_clients=1,  
-        min_available_clients=1,  
-        evaluate_fn=evaluate,
-        evaluate_metrics_aggregation_fn=weighted_average,
-        on_evaluate_config_fn=evaluate_config,
-)
+    # Start simulation
+    fl.simulation.start_simulation(
+        client_fn=client_fn,
+        num_clients=10,
+        config=fl.server.ServerConfig(num_rounds=10),
+        strategy=strategy,
+        client_resources=client_resources,
+    )
 
-# Start simulation
-fl.simulation.start_simulation(
-    client_fn=client_fn,
-    num_clients=args.num_clients,
-    config=fl.server.ServerConfig(num_rounds=args.rounds),
-    strategy=strategy,
-    client_resources=client_resources,
-)
+def evaluate_config(server_round: int):
+    return {"server_round": server_round}
+
+
+if __name__ == "__main__":
+    fire.Fire(fl_finetune)
