@@ -45,7 +45,7 @@ class ShakespeareDataset(Dataset):
 # Training data
 # Usage
 
-training_json_path = './shakespeare/data/train/all_data_niid_2_keep_0_train_9.json'
+training_json_path = './shakespeare/data/train/all_data_niid_1_keep_0_train_9.json'
 training_dataset = ShakespeareDataset(training_json_path)
 all_training_data = []
 # Generate instruction-response pairs
@@ -64,7 +64,7 @@ with open(output_json_path, 'w') as file:
 
 # Testinging data
 # Usage
-testing_json_path = './shakespeare/data/test/all_data_niid_2_keep_0_test_9.json'
+testing_json_path = './shakespeare/data/test/all_data_niid_1_keep_0_test_9.json'
 testing_dataset = ShakespeareDataset(testing_json_path)
 all_testing_data = []
 # Generate instruction-response pairs
