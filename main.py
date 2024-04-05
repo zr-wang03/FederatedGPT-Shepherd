@@ -22,7 +22,7 @@ else:
 
 
 from torch.utils.tensorboard import SummaryWriter
-writer = SummaryWriter(f'runs/April_3_2024')
+writer = SummaryWriter(f'runs/April_6')
 datasets.utils.logging.set_verbosity_error()
 
 
@@ -219,14 +219,14 @@ def fl_finetune(
 
 
         
-        # Please design the evaluation method based on your specific requirements in the fed_utils/evaluation.py file.
-        # Evaluation
+        Please design the evaluation method based on your specific requirements in the fed_utils/evaluation.py file.
+        Evaluation
         
         model.eval()
         correct_predictions = 0
-        # test_cases_path = './data_leaf/testing/shakespeare_instruction_response_pairs_all.json'
+        test_cases_path = './data_leaf/testing/shakespeare_instruction_response_pairs_all.json'
 
-        test_cases_path = './data/10/sampled_one_From_each_group.json'
+        # test_cases_path = './data/10/sampled_one_From_each_group.json'
         test_cases = load_dataset("json", data_files=test_cases_path)
 
         # print(test_cases["train"])
@@ -251,10 +251,10 @@ def fl_finetune(
             #     print(f"Wrong prediction for: {prompt}\nExpected: {expected_char}, Got: {predicted_char}")
 
         # Calculate and print accuracy
-        accuracy = correct_predictions / len(test_cases)
-        print(f"Round {epoch} , Accuracy: {accuracy:.2f} ({correct_predictions}/{len(test_cases)})\n")
+        accuracy = correct_predictions / len(test_cases["train"])
+        print(f"Round {epoch} , Accuracy: {accuracy:.2f} ({correct_predictions}/{len(test_cases["train"])})\n")
 
-        writer.add_scalar("Testing accuracy at server round", correct_predictions/len(test_cases),epoch)
+        writer.add_scalar("Testing accuracy at server round", accuracy,epoch)
         model.train()
 
     writer.close()

@@ -1,9 +1,9 @@
 Step 1: go to /shakespeare and run preprocess.sh
 
-    sudo bash preprocess.sh -s niid --sf 0.1 -k 0 -t sample -tf 0.8
+    sudo bash preprocess.sh -s niid --sf 0.01 -k 0 -t sample -tf 0.98
 
 
-Note that the shakespeare full dataset is too big with 4,226,15 samples, we only sample 10% of them to use. (At 42000, the number of samples is still three times the fedgpt repo used. )
+Note that the shakespeare full dataset is too big with 3678451 samples, we only sample 1% of them to use. (At 36219, the number of samples is still 2 times the fedgpt repo used. )
 
 
 
