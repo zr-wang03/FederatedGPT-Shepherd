@@ -22,7 +22,7 @@ else:
 
 
 from torch.utils.tensorboard import SummaryWriter
-writer = SummaryWriter(f'runs/April_6')
+writer = SummaryWriter(f'runs/April_6_central')
 datasets.utils.logging.set_verbosity_error()
 
 
@@ -219,8 +219,8 @@ def fl_finetune(
 
 
         
-        Please design the evaluation method based on your specific requirements in the fed_utils/evaluation.py file.
-        Evaluation
+        # Please design the evaluation method based on your specific requirements in the fed_utils/evaluation.py file.
+        # Evaluation
         
         model.eval()
         correct_predictions = 0
@@ -252,7 +252,9 @@ def fl_finetune(
 
         # Calculate and print accuracy
         accuracy = correct_predictions / len(test_cases["train"])
-        print(f"Round {epoch} , Accuracy: {accuracy:.2f} ({correct_predictions}/{len(test_cases["train"])})\n")
+
+        length = len(test_cases["train"])
+        print(f"Round {epoch} , Accuracy: {accuracy:.2f} ({correct_predictions}/{length})\n")
 
         writer.add_scalar("Testing accuracy at server round", accuracy,epoch)
         model.train()
