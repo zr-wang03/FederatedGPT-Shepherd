@@ -8,18 +8,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
-import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 import flwr as fl
 from flwr.common import Metrics
-from src.model import pyramidnet, TwoCNN
-from src.model import resnet18
-from dataset import cifar10
-from sampling import get_splits, get_splits_fig
-from datasets_utils import Subset
-from config import args_parser
 
 
 class GeneralClient(fl.client.NumPyClient):
