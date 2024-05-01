@@ -1,6 +1,6 @@
 d97ebb5869c89a23e276e40aff9380f4  data/all_data/all_data.json
 c1b03df6c43aaae612517474bb3649ca  data/raw_data/users_and_plays.json
-319975716aa7ea0d7ae52439dae3f8ea  data/rem_user_data/all_data_niid_0_keep_0.json
-319975716aa7ea0d7ae52439dae3f8ea  data/sampled_data/all_data_niid_0.json
-08592c5fbf71eb3ca6de76c038cf2a94  data/test/all_data_niid_0_keep_0_test_9.json
-8729d11fd36dc298df918cd166875945  data/train/all_data_niid_0_keep_0_train_9.json
+ade80c182484bc1fd7b0e297dd948638  data/rem_user_data/all_data_niid_001_keep_0.json
+ade80c182484bc1fd7b0e297dd948638  data/sampled_data/all_data_niid_001.json
+22f52a86c6dc9c281a19a69e6435aa61  data/test/all_data_niid_001_keep_0_test_9.json
+32fd6d1aa9fb65b8edbe13fb8664788f  data/train/all_data_niid_001_keep_0_train_9.json
