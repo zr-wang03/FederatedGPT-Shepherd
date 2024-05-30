@@ -40,3 +40,13 @@ Step 4: Run the program with
         --num_clients  10 \
         --train_on_inputs \
         --group_by_length
+
+Or if flower: 
+
+    python flower.py --global_model 'chavinlo/alpaca-native'\
+        --data_path  "./data" \
+        --output_dir  './lora-shepherd-7b/'\
+        --num_communication_rounds 10 \
+        --num_clients  10 \
+        --train_on_inputs \
+        --group_by_length

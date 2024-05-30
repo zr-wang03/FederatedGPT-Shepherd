@@ -12,9 +12,31 @@ from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 import flwr as fl
 from flwr.common import Metrics
+import os
+from typing import List
+from tqdm import tqdm
+import fire
+import torch
+from transformers import LlamaTokenizer, LlamaForCausalLM
+from peft import (
+    LoraConfig,
+    get_peft_model,
+    # prepare_model_for_int8_training,
+    prepare_model_for_kbit_training,
+    get_peft_model_state_dict,
+    set_peft_model_state_dict,
+)
+from fed_utils import FedAvg, client_selection, global_evaluation, GeneralClient
+import datasets
+from utils.prompter import Prompter
+from datasets import load_dataset
+if torch.cuda.is_available():
+    device = "cuda"
+else:
+    device = "cpu"
 
 
-class GeneralClient(fl.client.NumPyClient):
+class FlowerClient(fl.client.NumPyClient):
     def __init__(self, client_id, model, data_path, output_dir):
         self.client_id = client_id
         self.model = model
@@ -111,8 +133,8 @@ class GeneralClient(fl.client.NumPyClient):
         # os.makedirs(single_output_dir, exist_ok=True)
         # torch.save(new_adapter_weight, single_output_dir + "/pytorch_model.bin")
 
-        older_adapter_weight = get_peft_model_state_dict(self.model, self.params_dict_old, "default")
-        set_peft_model_state_dict(self.model, older_adapter_weight, "default")
+        # older_adapter_weight = get_peft_model_state_dict(self.model, self.params_dict_old, "default")
+        # set_peft_model_state_dict(self.model, older_adapter_weight, "default")
 
         return new_adapter_weight
 
@@ -298,7 +320,7 @@ def fl_finetune(
         config: dict[str, fl.common.Scalar],):
         # Evaluation
         correct_predictions = 0
-        test_cases_path = './data/testing/shakespeare_instruction_response_pairs_all.json'
+        test_cases_path = './data_leaf/testing/shakespeare_instruction_response_pairs_all.json'
         with open(test_cases_path, 'r') as f:
             test_cases = json.load(f)
         for case in test_cases:
@@ -323,11 +345,9 @@ def fl_finetune(
         print(f"Accuracy: {accuracy:.2f} ({correct_predictions}/{len(test_cases)})")
 
 
-    def client_fn(cid: str) -> FlowerClient:
-        client = GeneralClient(cid, model, datapath, output_dir)
-        # TODO
-        # Create a  single Flower client representing a single organization
-        return GeneralClient(net, trainloader, valloader)
+    def client_fn(cid: str):
+        client = FlowerClient(cid, model, "/users/wang2451/FederatedGPT-Shepherd/data/10/", output_dir)
+        return client
 
 
     client_resources = {"num_gpus": 1, "num_cpus":35}
