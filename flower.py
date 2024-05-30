@@ -34,6 +34,7 @@ if torch.cuda.is_available():
     device = "cuda"
 else:
     device = "cpu"
+import json
 
 
 class FlowerClient(fl.client.NumPyClient):
@@ -330,7 +331,7 @@ def fl_finetune(
 
             # Generate output
             with torch.no_grad():
-                outputs = model.generate(inputs["input_ids"], max_length=1, num_return_sequences=1)
+                outputs = model.generate(inputs["input_ids"], max_length=100, num_return_sequences=1)
             
             # Decode generated ID to text
             predicted_char = tokenizer.decode(outputs[:, -1][0], skip_special_tokens=True)
